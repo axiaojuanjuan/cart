@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title></title>
+<style>
+table{
+	border-left: 1px solid gray;
+	border-top: 1px solid gray;	
+}	
+thead{
+	background: skyblue;
+	color: white;
+}	
+td{
+	border-right: 1px solid gray;
+	border-bottom: 1px solid gray;
+	padding: 10px;
+}
+td>input[type=button]{
+	background: skyblue;
+	border: none;
+	color: white;
+}
+td>input[type=text]{
+	background: #f5f5f5;
+	width: 50px;
+	text-align: center;
+	border: none;
+}
+</style>
+<script src="js/jquery-1.11.3.js" ></script>
+<script src="js/cookie.js"></script>
+<script>
+$(function(){
+	var tbody = $("tbody");
+	//取出所有商品cookie
+	var arr = document.cookie.split("; ");
+	console.log(document.cookie)
+	var l = arr.length;
+	for( var i=0; i<l; i++ ){
+		var col = arr[i].split("=");
+		// 如果符合该条件，认为该cookie是购物车商品cookie
+		if( /g\d+/.test(col[0]) ){				
+			// 将cookie内容先解码，在转义为json对象
+			var goodstr = decodeURIComponent(col[1]);
+			var goods = JSON.parse(goodstr);
+			// 创建tr
+			var tr = $("<tr></tr>");
+			tbody.append(tr);
+			tr.attr("goods", goodstr);
+			// 创建单元格
+			var td = $("<td></td>");
+			tr.append(td);
+			var cb = $("<input />");
+			cb.attr({
+				"type" : "checkbox",
+				"value" : goods.id
+			});
+			td.append(cb);
+			//td.append(""+goods.id);
+			//图片
+			td = $("<td></td>");
+			tr.append(td);
+			var img = $("<img />");
+			img.attr("src", "images/"+goods.img).css({
+				"width" : 80,
+				"height" : 60
+			});
+			td.append(img);
+			//商品名称
+			td = $("<td></td>");
+			tr.append(td);
+			var a = $("<a></a>");
+			a.attr("href", "?id="+goods.id).html(goods.title);
+			td.append(a);
+			//单价
+			td = $("<td></td>");
+			td.html("￥"+goods.price);
+			tr.append(td);
+			//商品数量
+			td = $("<td></td>");
+			tr.append(td);
+			//减
+			var input1 = $("<input />");
+			input1.attr({
+				"type" : "button",
+				"value" : "-"
+			});
+			td.append(input1);
+			//输入
+			var input2 = $("<input />");
+			input2.attr({
+				"type" : "text",
+				"value" : goods.num
+			});
+			td.append(input2);
+			//加
+			var input3 = $("<input />");
+			input3.attr({
+				"type" : "button",
+				"value" : "+"
+			});
+			td.append(input3);
+			//总价
+			td = $("<td></td>");
+			td.html( "￥" + goods.price * goods.num );
+			tr.append(td);
+			//操作
+			td = $("<td class='d'></td>");
+			td.html("移除");
+			tr.append(td);
+		}
+	}
+	// 对所有移除绑定事件
+	$(".d").click(function(){
+		if( confirm("您确定要删除该条数据吗？") ){
+			var tr = $(this).parent();
+			var goods = JSON.parse(tr.attr("goods")); //在tr中获取该商品所有属性
+			setCookie("g"+goods.id, "", -10);	// 更新cookie
+			tr.remove(); //删除行
+		}
+	});
+	
+	// 对所有加号按钮绑定事件
+	$("input[value='+']").click(function(){
+		var inp = $(this).prev();
+		var n = inp.val();
+		inp.val( ++n );	//数量
+		var td = $(this).parent();
+		var tdPrev = td.prev();//单价
+		var tdNext = td.next();//总价
+		tdNext.html("￥"+(tdPrev.html().replace("￥","")*n));
+		// 更新cookie
+		var goods = JSON.parse(td.parent().attr("goods")); //在tr中获取该商品所有属性		
+		goods.num = Number(goods.num)+1;				// 更新数量
+		var goodstr = JSON.stringify(goods);	// 由对象转为字符串
+		td.parent().attr("goods", goodstr);		// 更新tr中该商品的属性
+		setCookie("g"+goods.id, goodstr, 10);	// 更新cookie
+	});
+	// 对所有减号按钮绑定事件
+	$("input[value='-']").click(function(){
+		var inp = $(this).next();//输入框
+		var n = inp.val();
+		inp.val( --n );	//数量
+		var td = $(this).parent();
+		var tdPrev = td.prev();//单价
+		var tdNext = td.next();//总价
+		tdNext.html("￥"+(tdPrev.html().replace("￥","")*n));		
+		// 更新cookie
+		var goods = JSON.parse(td.parent().attr("goods")); //在tr中获取该商品所有属性		
+		goods.num = goods.num-1;				// 更新数量
+		var goodstr = JSON.stringify(goods);	// 由对象转为字符串
+		td.parent().attr("goods", goodstr);		// 更新tr中该商品的属性
+		if( n <= 0 ){
+			td.parent().remove();
+			setCookie("g"+goods.id, "", -10);	// 删除cookie
+		}else{
+			setCookie("g"+goods.id, goodstr, 10);	// 更新cookie
+		}	
+	});
+	// 输入框失焦
+	$("input[type=text]").blur(function(){
+		var n = $(this).val();
+		var td = $(this).parent();
+		var tdPrev = td.prev();//单价
+		var tdNext = td.next();//总价
+		tdNext.html("￥"+(tdPrev.html().replace("￥","")*n));	
+		// 更新cookie
+		var goods = JSON.parse(td.parent().attr("goods")); //在tr中获取该商品所有属性		
+		goods.num = n;				// 更新数量
+		var goodstr = JSON.stringify(goods);	// 由对象转为字符串
+		td.parent().attr("goods", goodstr);		// 更新tr中该商品的属性
+		if( n <= 0 ){
+			td.parent().remove();
+			setCookie("g"+goods.id, "", -10);	// 删除cookie
+		}else{
+			setCookie("g"+goods.id, goodstr, 10);	// 更新cookie
+		}
+	});
+	// 全选
+	$(".qx").click(function(){
+		$("input[type=checkbox]").not(".qx").prop("checked", this.checked);
+	});
+	// 反选
+	$(".fx").click(function(){
+		$("input[type=checkbox]").not(".qx").each(function(index, elem){
+			elem.checked = !elem.checked;
+		});
+	});
+	// 删除
+	$(".qs").click(function(){
+		$(":checked").not(".qx").each(function(index, elem){
+			setCookie( "g"+elem.value, "", -10 );
+			$(elem).parent().parent().remove();
+		});
+	});
+});
+</script>
+</head>
+<body>
+	
+<table border="0" cellpadding="0" cellspacing="0">
+	<thead>
+		<tr>
+			<td>编号</td>
+			<td>图片</td>
+			<td>商品名称</td>
+			<td>商品单价</td>
+			<td>商品数量</td>
+			<td>商品总价</td>
+			<td>操作</td>
+		</tr>
+	</thead>
+	<tbody>
+		
+	</tbody>
+</table>	
+
+<label>
+	<input type="checkbox" class="qx" />
+	全选
+</label>
+
+<input type="button" class="fx" value="反选" />
+
+<input type="button" class="qs" value="删除" />
+	
+</body>
+</html>
